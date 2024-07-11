@@ -1,0 +1,91 @@
+# notebooks/exploratory_data_analysis.ipynb
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats.mstats import winsorize
+
+# Load data (ensure data is loaded correctly based on your data structure)
+# Assuming load_data function is available in utils
+from src.utils import load_data
+
+dataPath = "/kaggle/input/home-credit-credit-risk-model-stability/"
+base_train, person_1_train, applprev_train, static_train, static_cb_train, credit_bureau_b_2_train = load_data(dataPath)
+
+# Example EDA steps
+pd.set_option('display.max_columns', None)
+
+descriptive_numerical = X[numerical_columns].describe(percentiles=[0.25, 0.5, 0.75])
+descriptive_numerical.index.names = ["Statistic"]
+descriptive_numerical.head(10)
+
+# Correlation matrix
+correlation_matrix = X[numerical_columns].corr()
+fig, ax = plt.subplots(figsize=(20, 20))
+sns.heatmap(correlation_matrix, cmap="coolwarm", annot=False)
+plt.show()
+
+# High correlation pairs
+high_corr_pairs = correlation_matrix.stack().sort_values(ascending=False)
+high_corr_pairs = high_corr_pairs[(high_corr_pairs != 1) & (high_corr_pairs > 0.5)]
+for col1, col2 in high_corr_pairs.index:
+    plt.figure(figsize=(8, 6))
+    sns.scatterplot(x=col1, y=col2, data=X)
+    plt.title(f"Correlation between {col1} and {col2}")
+    plt.show()
+
+# Outliers and log transformation
+exclude_cols = ['age', 'number_of_payments', 'main_income']
+for col in numerical_columns:
+    plt.figure(figsize=(10, 6))
+    if col not in exclude_cols:
+        positive_data = X[col][X[col] > 0]
+        data_to_plot = np.log(positive_data)
+        title_suffix = " (Log Scale)"
+    else:
+        data_to_plot = X[col]
+        title_suffix = ""
+    sns.boxplot(x=data_to_plot)
+    plt.title(f"Boxplot for {col}{title_suffix}")
+    plt.show()
+    plt.figure(figsize=(10, 6))
+    sns.kdeplot(data_to_plot, bw_adjust=0.5)
+    plt.title(f"Density Plot for {col}{title_suffix}")
+    plt.show()
+
+# Outliers proportion
+outliers_proportion = {}
+for col in numerical_columns:
+    Q1 = X[col].quantile(0.25)
+    Q3 = X[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    num_outliers = ((X[col] < lower_bound) | (X[col] > upper_bound)).sum()
+    proportion_outliers = num_outliers / X[col].shape[0]
+    outliers_proportion[col] = proportion_outliers
+print(outliers_proportion)
+
+# Winsorize
+for col in numerical_columns:
+    if col not in exclude_cols:
+        X[col] = winsorize(X[col], limits=[0.05, 0.05])
+
+# Categorical columns
+for col in non_numerical_columns:
+    print(X[col].nunique())
+for col in non_numerical_columns:
+    print(f"Frequency Table for column '{col}':")
+    print(X[col].value_counts())
+    print("\n")
+for col in non_numerical_columns:
+    print(f"Cross-tabulation of '{col}' and 'target':")
+    print(pd.crosstab(X[col], y))
+    print("\n")
+for column in non_numerical_columns:
+    plt.figure(figsize=(10, 6))
+    sns.countplot(x=column, data=X)
+    plt.title(f"Count Plot for {column}")
+    plt.xticks(rotation=45)
+    plt.show()
